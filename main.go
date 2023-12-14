@@ -14,7 +14,7 @@ var (
 
 func main() {
 	cmd := MainCommand()
-	if err := Execute(cmd); err != nil {
+	if err := cmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

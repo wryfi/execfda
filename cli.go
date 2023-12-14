@@ -20,7 +20,21 @@ func MainCommand() *cobra.Command {
 		Short: "rwx: execute commands allowed by configuration file",
 		Long:  `rwx is a wrapper that executes commands specified in a configuration file`,
 		Args:  cobra.ArbitraryArgs,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cfgfile, _ := cmd.Flags().GetString("cfgfile")
+			if err := initConfig(cfgfile); err != nil {
+				fmt.Printf("Error: initialization failed - %s \n", err)
+				os.Exit(1)
+			}
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmd.Help(); err != nil {
+				return err
+			}
+			return nil
+		},
 	}
+	command.PersistentFlags().StringP("cfgfile", "c", "/private/etc/rwx/config.yml", "configuration file")
 	command.AddCommand(ExecCommand())
 	command.AddCommand(ConfigCommand())
 	return command
@@ -28,9 +42,10 @@ func MainCommand() *cobra.Command {
 
 func ExecCommand() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "exec",
-		Short: "execute an allowed command",
-		Args:  cobra.ArbitraryArgs,
+		Use:     "exec",
+		Aliases: []string{"ex", "run", "x"},
+		Short:   "execute an allowed command",
+		Args:    cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			allowed := viper.GetStringSlice("allowed")
 			for _, cmd := range allowed {
@@ -55,9 +70,10 @@ func ExecCommand() *cobra.Command {
 
 func ConfigCommand() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "config",
-		Short: "configure rwx",
-		Long:  `configure avaiable commands for rwx`,
+		Use:     "configure",
+		Aliases: []string{"cf", "cfg", "config"},
+		Short:   "configure rwx",
+		Long:    `configure available commands for rwx`,
 	}
 	command.AddCommand(ConfigAddAllowedCommand())
 	command.AddCommand(ConfigCreateCommand())
@@ -105,22 +121,24 @@ func ConfigCreateCommand() *cobra.Command {
 
 func ConfigDeleteAllowedCommand() *cobra.Command {
 	command := &cobra.Command{
-		Use:   "delete",
-		Short: "delete a command from the allowed list",
-		Long:  `deletes the specified command from the rwx allowed list`,
+		Use:     "delete",
+		Aliases: []string{"del", "rm"},
+		Short:   "delete a command from the allowed list",
+		Long:    `deletes the specified command from the rwx allowed list`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := checkUserRoot(); err != nil {
 				return err
 			}
 			toDelete := strings.Join(args, " ")
+			toAllow := []string{}
 			allowed := viper.GetStringSlice("allowed")
-			for idx, existing := range allowed {
+			for _, existing := range allowed {
 				existingCmd := strings.Join(strings.Fields(existing), " ")
-				if toDelete == existingCmd {
-					allowed = append(allowed[:idx], allowed[idx+1:]...)
+				if toDelete != existingCmd {
+					toAllow = append(toAllow, existingCmd)
 				}
 			}
-			viper.Set("allowed", allowed)
+			viper.Set("allowed", toAllow)
 			if err := writeConfig(); err != nil {
 				return err
 			}
@@ -148,30 +166,20 @@ func ConfigGetCommand() *cobra.Command {
 	return command
 }
 
-func InitConfig() error {
-	viper.SetConfigFile("/private/etc/rwx/config.yml")
+func initConfig(cfgfile string) error {
 	viper.SetDefault("allowed", []string{})
+	viper.SetConfigFile(cfgfile)
+	if _, err := os.Stat(cfgfile); os.IsNotExist(err) {
+		return nil
+	}
 	if err := viper.ReadInConfig(); err != nil {
-		if strings.Contains(err.Error(), "no such file or directory") {
-			return nil
-		} else {
-			fmt.Printf("Error: failed to read configuration - %s", err)
-			return err
-		}
+		fmt.Printf("Error reading config - %s", err)
+		return err
+	}
+	if err := checkFileAccess(cfgfile); err != nil {
+		return err
 	}
 	return nil
-}
-
-func Execute(cmd *cobra.Command) error {
-	if err := InitConfig(); err != nil {
-		return err
-	}
-	if err := checkFileAccess(viper.ConfigFileUsed()); err != nil {
-		fmt.Printf("Error: %s \n", err)
-		return err
-	}
-	cmd.SetOut(os.Stdout)
-	return cmd.Execute()
 }
 
 func checkUserRoot() error {
@@ -195,7 +203,7 @@ func checkFileAccess(cfgfile string) error {
 	mode, sys := stat.Mode(), stat.Sys().(*syscall.Stat_t)
 	if mode != 0644 {
 		return errors.New(fmt.Sprintf(
-			"invalid permissions on %s (expected 644, got %o)!", cfgfile, mode),
+			"invalid permissions on %s (expected 0644, got 0%o)!", cfgfile, mode),
 		)
 	}
 	if sys.Uid != 0 || sys.Gid != 0 {
