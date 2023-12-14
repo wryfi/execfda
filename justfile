@@ -1,4 +1,4 @@
-MODULE := "gitlab.com/wryfi/execfda"
+MODULE := "gitlab.com/wryfi/rwx"
 VERSION := `git describe --tags --dirty 2> /dev/null || echo v0`
 REVISION := `git rev-parse --short HEAD 2> /dev/null || echo 0`
 BUILD_DATE := `date -u +'%FT%T%:z'`
@@ -13,7 +13,7 @@ default:
     @just --list --justfile {{ justfile() }}
 
 build:
-    GOARCH=arm64 GOOS=darwin go build -o build/execfda_{{ VERSION }}_darwin_arm64 -ldflags "{{ LDFLAGS }}" .
+    GOARCH=arm64 GOOS=darwin go build -o build/rwx_{{ VERSION }}_darwin_arm64 -ldflags "{{ LDFLAGS }}" .
 
 run:
     go run -ldflags "{{ LDFLAGS }}" .

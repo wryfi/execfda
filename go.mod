@@ -1,4 +1,4 @@
-module gitlab.com/wryfi/execfda
+module gitlab.com/wryfi/rwx
 
 go 1.21
 
