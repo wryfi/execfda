@@ -1,4 +1,4 @@
-module gitlab.com/wryfi/rwx
+module github.com/wryfi/rwx
 
 go 1.21
 

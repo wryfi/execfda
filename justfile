@@ -1,4 +1,4 @@
-MODULE := "gitlab.com/wryfi/rwx"
+MODULE := "github.com/wryfi/rwx"
 VERSION := `git describe --tags --dirty 2> /dev/null || echo v0`
 REVISION := `git rev-parse --short HEAD 2> /dev/null || echo 0`
 BUILD_DATE := `date -u +'%FT%T%:z'`
